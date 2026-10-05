@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+
+{% block title %}Model Benchmarks & EDA | FraudGuard AI{% endblock %}
+
+{% block content %}
+<div class="metrics-header hero-banner">
+    <div class="hero-text">
+        <div class="system-status-pill status-ready">
+            <i class="fa-solid fa-medal"></i>
+            <span>Champion Model: <strong>{{ model_name }}</strong></span>
+        </div>
+        <h1 class="hero-title">Model Evaluation &amp; <span class="text-gradient">Performance Audit</span></h1>
+        <p class="hero-desc">
+            Rigorous evaluation of 6 Classical ML architectures against a Deep Neural Network (DNN) with SMOTE class balancing, Stratified K-Fold validation, calibrated decision thresholds, and SHAP explainability.
+        </p>
+    </div>
+</div>
+
+{% if best_meta %}
+<!-- Tuned Threshold Callout Card -->
+<div class="card threshold-card">
+    <div class="threshold-content">
+        <div class="threshold-badge">
+            <span class="threshold-number">{{ best_meta.optimal_threshold }}</span>
+            <span class="threshold-sub">Optimal Threshold</span>
+        </div>
+        <div class="threshold-info">
+            <h3 class="threshold-title">Calibrated Decision Boundary (Non-Arbitrary Threshold)</h3>
+            <p class="threshold-desc">
+                Default 0.5 probability thresholds fail in highly imbalanced fraud scenarios (where fraud is ~3%). By dynamically tuning the threshold to <strong>{{ best_meta.optimal_threshold }}</strong>, the system maximizes the harmonic F1-score and catches significantly more fraudulent events while preserving operational merchant margins.
+            </p>
+            <div class="threshold-stats">
+                <div class="t-stat">
+                    <span class="t-val text-green">{{ best_meta.tuned_recall * 100 }}%</span>
+                    <span class="t-lbl">Fraud Recall</span>
+                </div>
+                <div class="t-stat">
+                    <span class="t-val text-blue">{{ best_meta.tuned_precision * 100 }}%</span>
+                    <span class="t-lbl">Precision</span>
+                </div>
+                <div class="t-stat">
+                    <span class="t-val text-purple">{{ best_meta.tuned_f1 }}</span>
+                    <span class="t-lbl">Tuned F1 Score</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Model Comparison Table -->
+<section class="card mb-4">
+    <div class="card-header">
+        <div class="card-header-icon"><i class="fa-solid fa-ranking-star"></i></div>
+        <div>
+            <h2 class="card-title">Comprehensive Model Leaderboard</h2>
+            <p class="card-subtitle">Holdout test evaluation metrics across all evaluated architectures</p>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="data-table leaderboard-table">
+            <thead>
+                <tr>
+                    <th>Model Architecture</th>
+                    <th>ROC-AUC</th>
+                    <th>PR-AUC</th>
+                    <th>Recall</th>
+                    <th>Precision</th>
+                    <th>F1 Score</th>
+                    <th>Accuracy</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for name, m in metrics_data.items() %}
+                    {% if name != '_meta' %}
+                    <tr class="{% if name == model_name %}row-champion{% endif %}">
+                        <td class="font-bold">
+                            {% if name == model_name %}<i class="fa-solid fa-crown text-gold"></i>{% endif %}
+                            {{ name }}
+                        </td>
+                        <td class="font-mono text-green font-bold">{{ "%.4f"|format(m['ROC-AUC']) }}</td>
+                        <td class="font-mono text-blue font-bold">{{ "%.4f"|format(m['PR-AUC']) }}</td>
+                        <td class="font-mono">{{ "%.4f"|format(m['Recall']) }}</td>
+                        <td class="font-mono">{{ "%.4f"|format(m['Precision']) }}</td>
+                        <td class="font-mono">{{ "%.4f"|format(m['F1']) }}</td>
+                        <td class="font-mono text-muted">{{ "%.4f"|format(m['Accuracy']) }}</td>
+                        <td>
+                            {% if name == model_name %}
+                                <span class="badge badge-champion">Champion</span>
+                            {% elif 'Tree' in name or 'Random' in name or 'Gradient' in name %}
+                                <span class="badge badge-tech">Ensemble</span>
+                            {% elif 'Neural' in name %}
+                                <span class="badge badge-tech">Deep Learning</span>
+                            {% else %}
+                                <span class="badge badge-tech">Baseline</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endif %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<!-- Visual Diagnostics & Curves Gallery -->
+<div class="gallery-section-title">
+    <h2><i class="fa-solid fa-chart-pie"></i> Diagnostic Curves &amp; Interpretability</h2>
+    <p>Saved evaluation and feature attribution plots generated during pipeline execution</p>
+</div>
+
+<div class="gallery-grid">
+    <!-- Combined ROC Curve -->
+    <div class="gallery-card card">
+        <div class="gallery-card-header">
+            <h3><i class="fa-solid fa-bezier-curve"></i> Combined ROC Curve</h3>
+            <span class="badge badge-tech">All 7 Models</span>
+        </div>
+        <div class="gallery-img-wrapper">
+            {% if charts.roc_curve %}
+                <img src="{{ url_for('static', filename='combined_roc_curve.png') }}" alt="Combined ROC Curve" class="responsive-img">
+            {% else %}
+                <div class="img-placeholder"><i class="fa-regular fa-image"></i> Run <code>python main.py</code> to generate</div>
+            {% endif %}
+        </div>
+        <p class="gallery-caption">Measures true positive rate against false positive rate across all decision thresholds.</p>
+    </div>
+
+    <!-- Combined PR Curve -->
+    <div class="gallery-card card">
+        <div class="gallery-card-header">
+            <h3><i class="fa-solid fa-arrow-trend-up"></i> Precision-Recall (PR) Curve</h3>
+            <span class="badge badge-tech">Critical for Imbalance</span>
+        </div>
+        <div class="gallery-img-wrapper">
+            {% if charts.pr_curve %}
+                <img src="{{ url_for('static', filename='combined_pr_curve.png') }}" alt="Combined PR Curve" class="responsive-img">
+            {% else %}
+                <div class="img-placeholder"><i class="fa-regular fa-image"></i> Run <code>python main.py</code> to generate</div>
+            {% endif %}
+        </div>
+        <p class="gallery-caption">Precision-Recall focuses specifically on minority fraud class quality under extreme imbalance.</p>
+    </div>
+
+    <!-- Confusion Matrix -->
+    <div class="gallery-card card">
+        <div class="gallery-card-header">
+            <h3><i class="fa-solid fa-table-cells"></i> Calibrated Confusion Matrix</h3>
+            <span class="badge badge-tech">Tuned Threshold</span>
+        </div>
+        <div class="gallery-img-wrapper">
+            {% if charts.confusion_matrix %}
+                <img src="{{ url_for('static', filename='confusion_matrix_best.png') }}" alt="Confusion Matrix" class="responsive-img">
+            {% else %}
+                <div class="img-placeholder"><i class="fa-regular fa-image"></i> Run <code>python main.py</code> to generate</div>
+            {% endif %}
+        </div>
+        <p class="gallery-caption">Exact True Positives, False Positives, True Negatives, and False Negatives at optimal cut-off.</p>
+    </div>
+
+    <!-- SHAP Explainability -->
+    <div class="gallery-card card">
+        <div class="gallery-card-header">
+            <h3><i class="fa-solid fa-wand-magic-sparkles"></i> SHAP Global Feature Importance</h3>
+            <span class="badge badge-tech">Shapley Values</span>
+        </div>
+        <div class="gallery-img-wrapper">
+            {% if charts.shap_summary %}
+                <img src="{{ url_for('static', filename='shap_summary.png') }}" alt="SHAP Summary Plot" class="responsive-img">
+            {% else %}
+                <div class="img-placeholder"><i class="fa-regular fa-image"></i> Run <code>python main.py</code> to generate</div>
+            {% endif %}
+        </div>
+        <p class="gallery-caption">Explains which features drove model decisions: diff_time, device sharing, and network IP reuse.</p>
+    </div>
+</div>
+
+<!-- EDA Insights Section -->
+<div class="gallery-section-title mt-5">
+    <h2><i class="fa-solid fa-magnifying-glass-chart"></i> Exploratory Data Analysis (EDA) Insights</h2>
+    <p>Empirical evidence of fraud patterns observed in the e-commerce transaction dataset</p>
+</div>
+
+<div class="gallery-grid">
+    <!-- Class Balance -->
+    <div class="gallery-card card">
+        <div class="gallery-card-header">
+            <h3>Class Balance Distribution</h3>
+        </div>
+        <div class="gallery-img-wrapper">
+            {% if charts.class_balance %}
+                <img src="{{ url_for('static', filename='eda_class_balance.png') }}" alt="Class Balance" class="responsive-img">
+            {% else %}
+                <div class="img-placeholder">Run <code>python main.py</code></div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Diff Time Distribution -->
+    <div class="gallery-card card">
+        <div class="gallery-card-header">
+            <h3>Signup-to-Purchase Delta (diff_time)</h3>
+        </div>
+        <div class="gallery-img-wrapper">
+            {% if charts.diff_time %}
+                <img src="{{ url_for('static', filename='eda_diff_time.png') }}" alt="Diff Time by Class" class="responsive-img">
+            {% else %}
+                <div class="img-placeholder">Run <code>python main.py</code></div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Device Sharing -->
+    <div class="gallery-card card">
+        <div class="gallery-card-header">
+            <h3>Device Sharing vs Fraud Rate</h3>
+        </div>
+        <div class="gallery-img-wrapper">
+            {% if charts.device_sharing %}
+                <img src="{{ url_for('static', filename='eda_device_sharing.png') }}" alt="Device Sharing" class="responsive-img">
+            {% else %}
+                <div class="img-placeholder">Run <code>python main.py</code></div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Feature Correlation -->
+    <div class="gallery-card card">
+        <div class="gallery-card-header">
+            <h3>Feature Correlation Matrix</h3>
+        </div>
+        <div class="gallery-img-wrapper">
+            {% if charts.correlation %}
+                <img src="{{ url_for('static', filename='eda_correlation.png') }}" alt="Correlation Matrix" class="responsive-img">
+            {% else %}
+                <div class="img-placeholder">Run <code>python main.py</code></div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard | FraudGuard AI{% endblock %}
+
+{% block content %}
+<!-- System Overview Header -->
+<div class="hero-banner">
+    <div class="hero-text">
+        <div class="system-status-pill {% if model_loaded %}status-ready{% else %}status-warning{% endif %}">
+            <span class="status-indicator"></span>
+            {% if model_loaded %}
+                <span>System Online: <strong>{{ model_name }}</strong> (Threshold: {{ threshold|round(3) }})</span>
+            {% else %}
+                <span>Model Not Initialized &bull; Run <code>python main.py</code></span>
+            {% endif %}
+        </div>
+        <h1 class="hero-title">Real-Time E-Commerce <span class="text-gradient">Fraud Detection</span></h1>
+        <p class="hero-desc">
+            Autonomous anomaly scoring powered by tree ensembles, deep neural networks, and behavioral pattern recognition (velocity checks, device farm signatures, IP spoofing).
+        </p>
+    </div>
+</div>
+
+<!-- Upload & Control Section -->
+<section class="card upload-card">
+    <div class="card-header">
+        <div class="card-header-icon">
+            <i class="fa-solid fa-cloud-arrow-up"></i>
+        </div>
+        <div>
+            <h2 class="card-title">Upload Transaction Batch</h2>
+            <p class="card-subtitle">Upload transaction CSV to detect fraudulent transactions with instant explainability</p>
+        </div>
+    </div>
+
+    <form action="{{ url_for('detect') }}" method="POST" enctype="multipart/form-data" id="uploadForm">
+        <div class="drop-zone" id="dropZone">
+            <div class="drop-zone-content">
+                <i class="fa-solid fa-file-invoice-dollar drop-icon"></i>
+                <h3 class="drop-title">Drag &amp; drop transaction CSV file here</h3>
+                <p class="drop-subtitle">or click to browse your files (Max: 16MB)</p>
+                <div class="file-info-badge" id="fileInfoBadge" style="display: none;">
+                    <i class="fa-solid fa-check"></i> <span id="fileNameDisplay">None</span>
+                </div>
+            </div>
+            <input type="file" name="file" id="fileInput" accept=".csv" class="file-input-hidden" required>
+        </div>
+
+        <div class="upload-actions">
+            <button type="submit" class="btn btn-primary" id="detectBtn">
+                <i class="fa-solid fa-bolt"></i>
+                <span>Detect Fraud</span>
+            </button>
+            <a href="{{ url_for('sample_csv') }}" class="btn btn-secondary">
+                <i class="fa-solid fa-download"></i>
+                <span>Download Sample CSV (25 Rows)</span>
+            </a>
+            <span class="helper-text"><i class="fa-solid fa-circle-info"></i> Expects columns: <code>user_id, signup_time, purchase_time, purchase_value, device_id, ip_address...</code></span>
+        </div>
+    </form>
+</section>
+
+<!-- Results & Analysis Display -->
+{% if results and summary %}
+<section class="results-section">
+    <!-- KPI Summary Grid -->
+    <div class="kpi-grid">
+        <div class="kpi-card">
+            <div class="kpi-icon-box kpi-blue">
+                <i class="fa-solid fa-receipt"></i>
+            </div>
+            <div class="kpi-content">
+                <span class="kpi-label">Total Audited</span>
+                <span class="kpi-value">{{ summary.total_transactions }}</span>
+                <span class="kpi-meta">Orders Processed</span>
+            </div>
+        </div>
+
+        <div class="kpi-card kpi-danger-border">
+            <div class="kpi-icon-box kpi-red">
+                <i class="fa-solid fa-shield-virus"></i>
+            </div>
+            <div class="kpi-content">
+                <span class="kpi-label">Flagged Fraud</span>
+                <span class="kpi-value text-red">{{ summary.fraud_count }}</span>
+                <span class="kpi-meta">Fraud Rate: <strong>{{ summary.fraud_rate }}%</strong></span>
+            </div>
+        </div>
+
+        <div class="kpi-card">
+            <div class="kpi-icon-box kpi-green">
+                <i class="fa-solid fa-shield-check"></i>
+            </div>
+            <div class="kpi-content">
+                <span class="kpi-label">Legitimate Orders</span>
+                <span class="kpi-value text-green">{{ summary.legit_count }}</span>
+                <span class="kpi-meta">Approved Transactions</span>
+            </div>
+        </div>
+
+        <div class="kpi-card">
+            <div class="kpi-icon-box kpi-purple">
+                <i class="fa-solid fa-gauge-high"></i>
+            </div>
+            <div class="kpi-content">
+                <span class="kpi-label">Average Risk</span>
+                <span class="kpi-value">{{ summary.avg_risk }}%</span>
+                <span class="kpi-meta">Threshold: <strong>{{ summary.threshold_used }}%</strong></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Table Action Toolbar -->
+    <div class="table-toolbar card">
+        <div class="toolbar-left">
+            <h3 class="toolbar-title">
+                <i class="fa-solid fa-list-check"></i> Transaction Risk Breakdown
+            </h3>
+            <span class="table-counter">{{ results|length }} records analyzed</span>
+        </div>
+        <div class="toolbar-right">
+            <div class="search-box">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="tableSearch" placeholder="Search by User, Device, IP...">
+            </div>
+            <select id="riskFilter" class="select-filter">
+                <option value="ALL">All Risk Tiers</option>
+                <option value="CRITICAL">Critical Risk</option>
+                <option value="HIGH">High Risk</option>
+                <option value="MEDIUM">Medium Risk</option>
+                <option value="LOW">Low Risk</option>
+            </select>
+            <a href="{{ url_for('download_report') }}" class="btn btn-export">
+                <i class="fa-solid fa-file-arrow-down"></i>
+                <span>Download Report (CSV)</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Audit Results Table -->
+    <div class="table-responsive card">
+        <table class="data-table" id="auditTable">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>User ID</th>
+                    <th>Value ($)</th>
+                    <th>Signup &rarr; Order</th>
+                    <th>Device Signature</th>
+                    <th>Network IP</th>
+                    <th>Risk Score</th>
+                    <th>Status</th>
+                    <th>Triggered Risk Factors &amp; Reasons</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in results %}
+                <tr class="table-row {% if row.is_fraud %}row-flagged{% endif %}" data-risk="{{ row.risk_level }}">
+                    <td class="font-mono text-muted">{{ row.index }}</td>
+                    <td class="font-mono font-bold">{{ row.user_id }}</td>
+                    <td class="font-mono font-bold">${{ "%.2f"|format(row.purchase_value) }}</td>
+                    <td>
+                        {% if row.diff_time_sec < 60 %}
+                            <span class="badge badge-instant"><i class="fa-solid fa-bolt"></i> {{ row.diff_time_sec }}s</span>
+                        {% elif row.diff_time_sec < 3600 %}
+                            <span class="badge badge-warning-subtle"><i class="fa-solid fa-clock"></i> {{ (row.diff_time_sec / 60)|round|int }}m</span>
+                        {% else %}
+                            <span class="text-muted"><i class="fa-regular fa-clock"></i> {{ (row.diff_time_sec / 3600)|round(1) }}h</span>
+                        {% endif %}
+                    </td>
+                    <td class="font-mono text-truncate" title="{{ row.device_id }}">{{ row.device_id }}</td>
+                    <td class="font-mono text-truncate" title="{{ row.ip_address }}">{{ row.ip_address }}</td>
+                    <td>
+                        <div class="risk-bar-container">
+                            <div class="risk-bar-fill {% if row.risk_level == 'CRITICAL' %}fill-critical{% elif row.risk_level == 'HIGH' %}fill-high{% elif row.risk_level == 'MEDIUM' %}fill-medium{% else %}fill-low{% endif %}" style="width: {{ row.probability }}%;"></div>
+                            <span class="risk-bar-text">{{ row.probability }}%</span>
+                        </div>
+                    </td>
+                    <td>
+                        {% if row.risk_level == 'CRITICAL' %}
+                            <span class="status-badge badge-critical"><i class="fa-solid fa-ban"></i> CRITICAL</span>
+                        {% elif row.risk_level == 'HIGH' %}
+                            <span class="status-badge badge-fraud"><i class="fa-solid fa-triangle-exclamation"></i> HIGH</span>
+                        {% elif row.risk_level == 'MEDIUM' %}
+                            <span class="status-badge badge-medium"><i class="fa-solid fa-eye"></i> REVIEW</span>
+                        {% else %}
+                            <span class="status-badge badge-legit"><i class="fa-solid fa-circle-check"></i> LEGIT</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="reasons-list">
+                            {% for reason in row.reasons %}
+                                <span class="reason-tag {% if 'Rapid' in reason or 'Instant' in reason %}reason-speed{% elif 'Device' in reason %}reason-device{% elif 'IP' in reason %}reason-ip{% elif 'High' in reason %}reason-value{% else %}reason-generic{% endif %}">
+                                    {{ reason }}
+                                </span>
+                            {% endfor %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endif %}
+
+{% endblock %}

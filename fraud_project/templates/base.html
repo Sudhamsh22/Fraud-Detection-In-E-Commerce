@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}FraudGuard AI | E-Commerce Defense{% endblock %}</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body class="dark-theme">
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="{{ url_for('index') }}" class="nav-brand">
+                <div class="brand-icon">
+                    <i class="fa-solid fa-shield-halved"></i>
+                </div>
+                <div class="brand-text">
+                    <span class="brand-title">FraudGuard<span class="accent-dot">.AI</span></span>
+                    <span class="brand-subtitle">E-Commerce Protection Engine</span>
+                </div>
+            </a>
+
+            <div class="nav-links">
+                <a href="{{ url_for('index') }}" class="nav-item {% if request.endpoint == 'index' %}active{% endif %}">
+                    <i class="fa-solid fa-radar"></i>
+                    <span>Live Detection</span>
+                </a>
+                <a href="{{ url_for('metrics') }}" class="nav-item {% if request.endpoint == 'metrics' %}active{% endif %}">
+                    <i class="fa-solid fa-chart-line"></i>
+                    <span>Model Benchmarks & EDA</span>
+                </a>
+                <a href="{{ url_for('sample_csv') }}" class="nav-button sample-btn" title="Download sample CSV for testing">
+                    <i class="fa-solid fa-file-csv"></i>
+                    <span>Sample Test Data</span>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Flash Messages Container -->
+    <main class="main-content">
+        <div class="container">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="flash-container">
+                        {% for category, message in messages %}
+                            <div class="flash-alert alert-{{ category }}">
+                                <div class="alert-icon">
+                                    {% if category == 'danger' %}
+                                        <i class="fa-solid fa-triangle-exclamation"></i>
+                                    {% elif category == 'warning' %}
+                                        <i class="fa-solid fa-circle-exclamation"></i>
+                                    {% else %}
+                                        <i class="fa-solid fa-circle-check"></i>
+                                    {% endif %}
+                                </div>
+                                <div class="alert-msg">{{ message }}</div>
+                                <button class="alert-close" onclick="this.parentElement.remove();">&times;</button>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container footer-content">
+            <div>
+                <p>&copy; 2026 <strong>FraudGuard AI</strong> &bull; Local Autonomous E-Commerce Fraud Prevention</p>
+                <p class="footer-sub">Zero external API calls &bull; Runs completely on local CPU/GPU &bull; Explainable ML &amp; Keras DNN</p>
+            </div>
+            <div class="footer-badges">
+                <span class="badge badge-tech"><i class="fa-brands fa-python"></i> Python 3.10+</span>
+                <span class="badge badge-tech"><i class="fa-solid fa-brain"></i> Scikit-Learn + Keras</span>
+                <span class="badge badge-tech"><i class="fa-solid fa-fingerprint"></i> SHAP Explainability</span>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Core Javascript -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
