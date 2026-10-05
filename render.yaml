@@ -1,0 +1,20 @@
+# Render Infrastructure as Code (Blueprint)
+# https://render.com/docs/blueprint-spec
+
+version: "1"
+
+services:
+  - type: web
+    name: fraud-guard-ai
+    runtime: python
+    plan: free
+    branch: main
+    buildCommand: bash build.sh
+    startCommand: gunicorn --chdir fraud_project predict:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: PORT
+        value: 10000

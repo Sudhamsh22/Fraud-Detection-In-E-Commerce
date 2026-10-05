@@ -123,6 +123,26 @@ def load_model_artifacts() -> None:
         logger.error("Failed to load model artifacts: %s", e, exc_info=True)
         MODEL_REGISTRY["is_loaded"] = False
 
+# Eagerly attempt to load model artifacts at application startup
+load_model_artifacts()
+
+
+@app.route("/health", methods=["GET"])
+def health() -> Any:
+    """Health check endpoint for Render, Docker, and monitoring probes."""
+    if not MODEL_REGISTRY["is_loaded"]:
+        load_model_artifacts()
+
+    status = "healthy" if MODEL_REGISTRY["is_loaded"] else "degraded"
+    status_code = 200 if MODEL_REGISTRY["is_loaded"] else 503
+
+    return jsonify({
+        "status": status,
+        "model_loaded": MODEL_REGISTRY["is_loaded"],
+        "model_name": MODEL_REGISTRY["model_name"],
+        "threshold": MODEL_REGISTRY["threshold"],
+    }), status_code
+
 
 def generate_explainability_reasons(
     row: pd.Series,
@@ -482,8 +502,10 @@ def metrics() -> str:
 def main() -> None:
     """Start local Flask server."""
     load_model_artifacts()
-    logger.info("Starting Fraud Detection Web App on http://127.0.0.1:5000 ...")
-    app.run(host="127.0.0.1", port=5000, debug=False)
+    port = int(os.environ.get("PORT", 5000))
+    host = os.environ.get("HOST", "0.0.0.0")
+    logger.info("Starting Fraud Detection Web App on http://%s:%s ...", host, port)
+    app.run(host=host, port=port, debug=False)
 
 
 if __name__ == "__main__":
